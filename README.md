@@ -1,13 +1,14 @@
-# projetovale
-segue codigo completo para funcionamento do sensor
+# projetovale084091
 #include <RH_ASK.h>
 #include <SPI.h>
 #include <Wire.h>
 #include <LiquidCrystal_I2C.h>
 
-#define buzzer 6
+#define BUZZER 6
 
-int led = 5;
+#define LED_PERIGO 5
+#define LED_ATENCAO 11
+#define LED_LIVRE 10
 
 struct Pacote {
   uint8_t colisao;
@@ -25,8 +26,15 @@ LiquidCrystal_I2C lcd(0x27, 16, 2);
 void setup() {
   Serial.begin(9600);
 
-  pinMode(led, OUTPUT);
-  pinMode(buzzer, OUTPUT);
+  pinMode(BUZZER, OUTPUT);
+
+  pinMode(LED_PERIGO, OUTPUT);
+  pinMode(LED_ATENCAO, OUTPUT);
+  pinMode(LED_LIVRE, OUTPUT);
+
+  digitalWrite(LED_PERIGO, LOW);
+  digitalWrite(LED_ATENCAO, LOW);
+  digitalWrite(LED_LIVRE, LOW);
 
   lcd.init();
   lcd.backlight();
@@ -47,32 +55,60 @@ void setup() {
 }
 
 void loop() {
+
   uint8_t tamanhoMensagem = sizeof(dadosRecebidos);
 
   if (driver.recv((uint8_t *)&dadosRecebidos, &tamanhoMensagem)) {
 
     if (tamanhoMensagem == sizeof(Pacote)) {
 
-      if ((dadosRecebidos.dist0 > 0 && dadosRecebidos.dist0 <= 50) || (dadosRecebidos.dist1 > 0 && dadosRecebidos.dist1 <= 50) || (dadosRecebidos.dist2 > 0 && dadosRecebidos.dist2 <= 50)) {
-        digitalWrite(led, HIGH);
-        tone(buzzer, 2200);
-        delay(120);
-        noTone(buzzer);
-        delay(120);
-        Serial.println("ColisÃ£o iminente!");
+      bool perigo =
+        (dadosRecebidos.dist0 > 0 && dadosRecebidos.dist0 <= 50) ||
+        (dadosRecebidos.dist1 > 0 && dadosRecebidos.dist1 <= 50) ||
+        (dadosRecebidos.dist2 > 0 && dadosRecebidos.dist2 <= 50);
 
-      }
-      else if ((dadosRecebidos.dist0 > 0 && dadosRecebidos.dist0 <= 100) || (dadosRecebidos.dist1 > 0 && dadosRecebidos.dist1 <= 100) || (dadosRecebidos.dist2 > 0 && dadosRecebidos.dist2 <= 100)) {
-        digitalWrite(led, HIGH);
-        tone(buzzer, 1800);
+      bool atencao =
+        (!perigo) &&
+        (
+          (dadosRecebidos.dist0 > 50 && dadosRecebidos.dist0 <= 100) ||
+          (dadosRecebidos.dist1 > 50 && dadosRecebidos.dist1 <= 100) ||
+          (dadosRecebidos.dist2 > 50 && dadosRecebidos.dist2 <= 100)
+        );
+
+      if (perigo) {
+
+        digitalWrite(LED_PERIGO, HIGH);
+        digitalWrite(LED_ATENCAO, LOW);
+        digitalWrite(LED_LIVRE, LOW);
+
+        tone(BUZZER, 2200);
+        delay(120);
+        noTone(BUZZER);
+        delay(120);
+
+        Serial.println("Colisao iminente!");
+
+      } else if (atencao) {
+
+        digitalWrite(LED_PERIGO, LOW);
+        digitalWrite(LED_ATENCAO, HIGH);
+        digitalWrite(LED_LIVRE, LOW);
+
+        tone(BUZZER, 1800);
         delay(300);
-        noTone(buzzer);
+        noTone(BUZZER);
         delay(300);
+
         Serial.println("Colisao a caminho.");
-      } 
-      else {
-        digitalWrite(led, LOW);
-        noTone(buzzer);
+
+      } else {
+
+        digitalWrite(LED_PERIGO, LOW);
+        digitalWrite(LED_ATENCAO, LOW);
+        digitalWrite(LED_LIVRE, HIGH);
+
+        noTone(BUZZER);
+
         Serial.println("Sem colisao!");
       }
 
@@ -92,6 +128,7 @@ void loop() {
       Serial.println(" cm");
 
       lcd.clear();
+
       lcd.setCursor(0, 0);
       lcd.print("E:");
       lcd.print(dadosRecebidos.dist0);
